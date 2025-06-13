@@ -7,12 +7,16 @@
 <div class="summary-container">
   <div class="tile">
     <h3 class="tile-title">Current Balance</h3>
-    <p class="tile-value">{currentBalance}</p>
+    {#if currentBalance >=0}
+      <p class="tile-value-pos">${currentBalance}</p>
+    {:else}
+      <p class="tile-value-neg">${currentBalance}</p>
+    {/if}
   </div>
 
   <div class="tile">
     <h3 class="tile-title">Daily Avg. Cash Flow</h3>
-    <p class="tile-value">{dailyAverageCashFlow}</p>
+    <p class="tile-value-pos">{dailyAverageCashFlow}</p>
   </div>
 </div>
 
@@ -43,10 +47,16 @@
     color: #bbb; /* Lighter title color */
   }
 
-  .tile-value {
+  .tile-value-pos {
     font-size: 1.8em;
     font-weight: bold;
-    color: #64b5f6; /* Lighter blue, or another accent color */
+    color: #19e155; /* Lighter blue, or another accent color */
+    margin: 0;
+  }
+  .tile-value-neg {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #f32719; /* Lighter blue, or another accent color */
     margin: 0;
   }
 </style>
