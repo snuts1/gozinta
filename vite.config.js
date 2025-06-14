@@ -25,16 +25,16 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'gg-192x192.png', // You'd place this in your public folder
+            src: 'icons/gg-192x192.png', // You'd place this in your public folder
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: 'gg-512x512.png', // You'd place this in your public folder
+            src: 'icons/gg-512x512.png', // You'd place this in your public folder
             sizes: '512x512',
             type: 'image/png',
           },{
-            src: 'gg-maskable-512x512.png', // You'd place this in your public folder
+            src: 'icons/gg-maskable-512x512.png', // You'd place this in your public folder
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'
