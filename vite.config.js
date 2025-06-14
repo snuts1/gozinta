@@ -21,7 +21,7 @@ export default defineConfig({
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',
-        scope: '/',
+        scope: '/gozinta/',
         start_url: '/gozinta/',
         icons: [
           {
