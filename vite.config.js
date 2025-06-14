@@ -40,6 +40,14 @@ export default defineConfig({
             purpose: 'maskable'
           }
         ],
+        screenshots: [
+          {
+            src: 'screenshots/Screenshot 2025-06-14 110408.png', // Path relative to your public folder
+            sizes: '454x835', // Actual size of your screenshot
+            type: 'image/png',
+            label: 'Main view of the Gozinta app'
+          }
+        ]
       },
       })
     ],
