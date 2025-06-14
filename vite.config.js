@@ -22,7 +22,7 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         scope: '/',
-        start_url: '/',
+        start_url: '/gozinta/',
         icons: [
           {
             src: 'icons/gg-192x192.png', // You'd place this in your public folder
