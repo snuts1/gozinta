@@ -1,5 +1,5 @@
 const DB_NAME = 'cashFlowDB';
-const DB_VERSION = 1;
+const DB_VERSION = 3;
 const STORE_NAME = 'entries';
 
 let db;
@@ -9,6 +9,53 @@ let db;
  * Creates the object store and indexes if they don't exist.
  * @returns {Promise<IDBDatabase>} A promise that resolves with the database instance.
  */
+const defaultCategories = [
+  {
+    id: 'cat_paycheck',
+    name: 'Paycheck',
+    description: 'Regular income from employment.',
+    isPos: true
+  },
+  {
+    id: 'cat_sales',
+    name: 'Sales',
+    description: 'Income from sales of goods or services.',
+    isPos: true
+  },
+  {
+    id: 'cat_rent',
+    name: 'Rent',
+    description: 'Monthly rent payment for housing.',
+    isPos: false
+  },
+  {
+    id: 'cat_mortgage',
+    name: 'Mortgage',
+    description: 'Monthly mortgage payment for property.',
+    isPos: false
+  },
+  {
+    id: 'cat_gas',
+    name: 'Gas',
+    description: 'Expenses for vehicle fuel.',
+    isPos: false
+  },
+  {
+    id: 'cat_food',
+    name: 'Food',
+    description: 'Expenses for groceries and dining out.',
+    isPos: false
+  },
+  {
+    id: 'cat_entertainment',
+    name: 'Entertainment',
+    description: 'Expenses for leisure activities, movies, events, etc.',
+    isPos: false
+  }
+  // You can add more default categories here
+];
+
+
 export async function initDB() {
     return new Promise((resolve, reject) => {
         if (db) {
@@ -30,16 +77,51 @@ export async function initDB() {
         };
 
         request.onupgradeneeded = (event) => {
-            const storeDb = event.target.result;
-            if (!storeDb.objectStoreNames.contains(STORE_NAME)) {
-                const objectStore = storeDb.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+            const currentDB = event.target.result;
+            const upgradeTransaction = event.target.transaction; // Use this transaction for data seeding
+
+            if (!currentDB.objectStoreNames.contains(STORE_NAME)) {
+                const objectStore = currentDB.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
                 // Define indexes for efficient querying
                 objectStore.createIndex('date', 'date', { unique: false });
                 objectStore.createIndex('isProjected', 'isProjected', { unique: false });
                 objectStore.createIndex('amount', 'amount', { unique: false });
                 objectStore.createIndex('recurrence', 'recurrence', { unique: false });
+                objectStore.createIndex('categoryID','categoryId', { unique: false });
+                objectStore.createIndex('accountID','accountId', { unique: false });
                 console.log("Object store 'entries' created with indexes.");
             }
+            // Create 'categories' object store if it doesn't exist
+            if (!currentDB.objectStoreNames.contains('categories')) {
+                const categoriesStore = currentDB.createObjectStore('categories', {
+                keyPath: 'id' // 'id' will be the unique key
+                });
+                // Optional: Create an index on 'name' if you want to query by name,
+                // or on 'isPos' if you want to easily fetch all income/expense categories.
+                categoriesStore.createIndex('name', 'name', { unique: true });
+                categoriesStore.createIndex('isPos', 'isPos');
+                console.log('Created categories object store');
+
+                // Populate with default categories
+                // Use the transaction provided to the upgrade callback
+                
+                const categoriesDataStore  = upgradeTransaction.objectStore('categories');
+                defaultCategories.forEach(category => {
+                categoriesDataStore.add(category);
+                });
+                console.log('Added default categories');
+            }
+
+            // Create 'accounts' object store (example)
+            if (!currentDB.objectStoreNames.contains('accounts')) {
+                const accountsStore = currentDB.createObjectStore('accounts', {
+                keyPath: 'id'
+                });
+                accountsStore.createIndex('name', 'name', { unique: true });
+                accountsStore.createIndex('type', 'type');
+                console.log('Created accounts object store');
+            }
+
         };
     });
 }
@@ -154,6 +236,27 @@ export async function deleteEntry(id) {
         request.onerror = (event) => {
             console.error("Error deleting entry:", event.target.error);
             reject("Error deleting entry: " + event.target.error.message);
+        };
+    });
+}
+
+/**
+ * Retrieves all categories from the database.
+ * @returns {Promise<Array<object>>} A promise that resolves with an array of all category objects.
+ */
+export async function getAllCategories() {
+    if (!db) await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['categories'], 'readonly');
+        const store = transaction.objectStore('categories');
+        const request = store.getAll();
+
+        request.onsuccess = (event) => {
+            resolve(event.target.result);
+        };
+        request.onerror = (event) => {
+            console.error("Error fetching all categories:", event.target.error);
+            reject("Error fetching all categories: " + event.target.error.message);
         };
     });
 }

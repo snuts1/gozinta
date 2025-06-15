@@ -1,11 +1,19 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import { addEntry } from './db.js';
+  import {
+    categories as allCategories, // Renamed to avoid conflict if needed, though not strictly here
+    incomeCategories,
+    expenseCategories,
+    loadCategories
+  } from './stores/categoryStore.js';
 
   export let show = false;
   // export let entryToEdit = null; // For future edit functionality
 
   const dispatch = createEventDispatcher();
+  const GENERAL_EXPENSE_ID = 'cat_general_expense';
+  const GENERAL_INCOME_ID = 'cat_general_income';
 
   let description = '';
   let amount = null;
@@ -13,11 +21,21 @@
   let recurrenceDays = 0;
   let isProjected = false;
   let isExpense = true; // Default to expense
+  let selectedCategoryId = '';
 
   let errorMessage = '';
   let isLoading = false;
 
   // $: if (!show) { /* Reset form when hidden, if needed */ }
+   // Reactive statement to choose which categories to display
+  $: currentCategoryList = isExpense ? $expenseCategories : $incomeCategories;
+
+  onMount(async () => {
+    // Load categories when the component mounts or becomes visible
+    // This ensures categories are available for the dropdown.
+    // loadCategories() is designed to run once.
+    await loadCategories();
+  });
 
   async function handleSubmit() {
     errorMessage = '';
@@ -29,7 +47,7 @@
       errorMessage = 'Please enter a valid positive amount.';
       return;
     }
-
+    
     isLoading = true;
     try {
       const entryData = {
@@ -37,7 +55,8 @@
         amount: Math.round(parseFloat(amount) * 100) * (isExpense ? -1 : 1), // Store in cents
         recurrence: parseInt(recurrenceDays) || 0,
         isProjected: isProjected,
-        description: description.trim()
+        description: description.trim(),
+        categoryId: selectedCategoryId || (isExpense ? GENERAL_EXPENSE_ID : GENERAL_INCOME_ID)
       };
 
       // Placeholder for future edit logic
@@ -64,12 +83,19 @@
     isProjected = false;
     isExpense = true;
     errorMessage = '';
+    selectedCategoryId = '';
   }
 
   function handleClose() {
     if (!isLoading) {
       resetForm();
       dispatch('close');
+    }
+  }
+    // When switching between income/expense, reset selectedCategoryId if it's no longer valid
+  $: {
+    if (show && selectedCategoryId && !currentCategoryList.find(cat => cat.id === selectedCategoryId)) {
+      selectedCategoryId = '';
     }
   }
 </script>
@@ -86,7 +112,15 @@
           <label>Type:</label>
           <label class="radio-label"><input type="radio" bind:group={isExpense} name="entryType" value={true} /> Expense</label>
           <label class="radio-label"><input type="radio" bind:group={isExpense} name="entryType" value={false} /> Income</label>
-        </div>
+         </div>
+        <div>
+           <label for="category">Category (optional):</label>
+          <select id="category" bind:value={selectedCategoryId}>
+            <option value="" disabled>Select a category (defaults to General)</option>
+            {#each currentCategoryList as category (category.id)}
+              <option value={category.id}>{category.name}</option>
+            {/each}
+          </select></div>
         <div><label for="entryDate">Date:</label><input type="date" id="entryDate" bind:value={entryDate} required /></div>
         <div><label for="recurrenceDays">Recurrence (days, 0 for none):</label><input type="number" id="recurrenceDays" bind:value={recurrenceDays} min="0" /></div>
         <div><label class="checkbox-label"><input type="checkbox" bind:checked={isProjected} /> Is Projected?</label></div>

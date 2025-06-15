@@ -4,6 +4,7 @@
   import AddEntryButton from './AddEntryButton.svelte';
   import SetupForm from './SetupForm.svelte';
   import InputForm from './InputForm.svelte';
+  import TimelineChart from './TimelineChart.svelte';
   import { initDB, addEntry, getAllEntries } from './db.js';
 
   let showSetupModal = false;
@@ -53,6 +54,8 @@
     <AddEntryButton on:click={handleAddEntryClick} />
   </div>
 
+
+
   {#if showSetupModal}
     <SetupForm
       show={showSetupModal}
@@ -85,7 +88,9 @@
       {/each}
     </ul>
   {/if}
-
+  <div>
+    <TimelineChart {entries} />
+  </div>
 </main>
 
 <style>
