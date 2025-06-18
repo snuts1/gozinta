@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@carbon/charts-svelte": "^1.22.18",
-    "idb": "^8.0.3"
+    "idb": "^8.0.3",
+    "uuid": "^11.1.0"
   }
 }

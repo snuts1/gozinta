@@ -6,6 +6,10 @@
   import InputForm from './InputForm.svelte';
   import TimelineChart from './TimelineChart.svelte';
   import { initDB, addEntry, getAllEntries } from './db.js';
+  /**
+   * @typedef {import('./types.js').Entry} Entry
+   * @typedef {import('./types.js').EntryType} EntryType
+   */
 
   let showSetupModal = false;
   let showEntryFormModal = false;
@@ -38,9 +42,18 @@
     showEntryFormModal = false;
     await loadEntries();
   }
+
+  // Calculate current balance based on actual transactions
   $: {
     if (entries && entries.length >0) {
-      currentBalance = entries.reduce((sum,entry) => sum+ entry.amount,0)/100
+      currentBalance = entries.reduce((sum, entry) => {
+        if (entry.entryType === 'actual_transaction' && typeof entry.actualAmount === 'number') {
+          return sum + entry.actualAmount;
+        }
+        return sum;
+      }, 0) / 100;
+    } else {
+      currentBalance = 0;
     }
   }
 </script>
@@ -79,11 +92,30 @@
   {:else}
     <ul>
       {#each entries as entry (entry.id)}
+        {@const amount = entry.entryType === 'actual_transaction' ? entry.actualAmount : entry.projectedAmount}
+        {@const dateToDisplay = entry.entryType === 'actual_transaction' ? entry.transactionDate : (entry.entryType === 'one_time_projection' ? entry.projectedDate : (entry.recurrenceRule ? entry.recurrenceRule.seriesStartDate : null))}
+        {@const displayType = entry.entryType === 'actual_transaction' ? '(Actual)' : '(Projected Template/Goal)'}
+
         <li>
-          {entry.description}: <span style="color: {entry.amount < 0 ? 'red' : 'green'};">{ (entry.amount / 100).toFixed(2) }</span>
-          on {new Date(entry.date).toLocaleDateString()}
-          {#if entry.recurrence > 0}(Recurs every {entry.recurrence} days){/if}
-          {entry.isProjected ? '(Projected)' : '(Actual)'}
+          {entry.description}:
+          {#if typeof amount === 'number'}
+            <span style="color: {amount < 0 ? '#ff6b6b' : '#19e155'};">
+              { (amount / 100).toFixed(2) }
+            </span>
+          {:else}
+            <span>(No amount)</span>
+          {/if}
+
+          {#if dateToDisplay}
+            on {new Date(dateToDisplay).toLocaleDateString()}
+          {/if}
+
+          {#if entry.entryType === 'recurring_template' && entry.recurrenceRule}
+            (Recurs every {entry.recurrenceRule.interval} {entry.recurrenceRule.frequency})
+          {/if}
+
+          {displayType}
+          <span style="font-size: 0.8em; color: #888;"> (Type: {entry.entryType}, ID: {entry.id})</span> <!-- Debugging info -->
         </li>
       {/each}
     </ul>

@@ -69,7 +69,7 @@
         let pastDate = new Date(endDate);
         pastDate.setDate(endDate.getDate() - 29);
         const startDate = new Date(pastDate.getFullYear(), pastDate.getMonth(), pastDate.getDate());
-
+        endDate.setDate(endDate.getDate() + 29)
         chartData = formatDataForDailyTimeline(entries || [], localCategories, startDate, endDate);
 
         currentChartOptions = {

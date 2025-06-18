@@ -1,6 +1,11 @@
 <script>
   import { createEventDispatcher } from 'svelte';
+  import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
   import { addEntry } from './db.js';
+  /**
+   * @typedef {import('./types.js').Entry} Entry
+   * @typedef {import('./types.js').RecurrenceRule} RecurrenceRule
+   */
 
   export let show = false;
 
@@ -11,22 +16,40 @@
 
   let incomeDescription = 'Salary';
   let incomeAmount = null;
-  let incomeRecurrenceOption = 'monthly'; // 'none', 'weekly', 'biweekly', 'monthly'
+  let incomeRecurrenceFrequency = 'monthly'; // Matches RecurrenceFrequency type
   let incomeNextDate = new Date().toISOString().split('T')[0];
+  let incomeInterval = 1; // For recurrence rule
 
   let errorMessage = '';
   let isLoading = false;
 
   const recurrenceOptions = [
-    { value: 'none', label: 'One-time (No Recurrence)', days: 0 },
-    { value: 'weekly', label: 'Weekly', days: 7 },
-    { value: 'biweekly', label: 'Bi-Weekly (Every 2 Weeks)', days: 14 },
-    { value: 'monthly', label: 'Monthly (approx. 30 days)', days: 30 },
+    { value: 'none', label: 'One-time (No Recurrence)' },
+    { value: 'daily', label: 'Daily' },
+    { value: 'weekly', label: 'Weekly' },
+    // { value: 'biweekly', label: 'Bi-Weekly (Every 2 Weeks)' }, // Bi-weekly is 'weekly' with interval 2
+    { value: 'monthly', label: 'Monthly' },
+    { value: 'yearly', label: 'Yearly' },
   ];
 
-  function getRecurrenceDays() {
-    const selected = recurrenceOptions.find(opt => opt.value === incomeRecurrenceOption);
-    return selected ? selected.days : 0;
+  /** @returns {RecurrenceRule | undefined} */
+  function createRecurrenceRule() {
+    if (incomeRecurrenceFrequency === 'none' || !incomeAmount || incomeAmount <= 0) {
+      return undefined;
+    }
+    // For monthly, we'll default to 'dayOfMonth' based on the incomeNextDate's day.
+    // A more complex UI would allow choosing 'nthDayOfWeek'.
+    const nextDateObj = new Date(incomeNextDate);
+    return {
+      frequency: incomeRecurrenceFrequency,
+      interval: parseInt(incomeInterval, 10) || 1,
+      seriesStartDate: nextDateObj,
+      // For monthly, you might want to specify monthlyType and dayOfMonth or nthDayOfWeek
+      // For simplicity here, we're just setting frequency and interval.
+      // A full implementation would derive dayOfMonth or daysOfWeek based on UI choices.
+      ...(incomeRecurrenceFrequency === 'monthly' && { monthlyType: 'dayOfMonth', dayOfMonth: nextDateObj.getDate() }),
+      ...(incomeRecurrenceFrequency === 'weekly' && { daysOfWeek: [nextDateObj.getDay()] }), // Example: repeats on the same day of week as nextDate
+    };
   }
 
   async function handleSubmit() {
@@ -48,23 +71,35 @@
     isLoading = true;
     try {
       // 1. Create Starting Balance Entry
+      /** @type {Entry} */
       const balanceEntry = {
-        date: new Date(balanceDate),
-        amount: Math.round(parseFloat(balanceAmount) * 100), // Store in cents
-        recurrence: 0, // Non-recurring
-        isProjected: false, // Actual balance
-        description: 'Starting Balance'
+        id: uuidv4(),
+        entryType: 'actual_transaction',
+        transactionDate: new Date(balanceDate),
+        actualAmount: Math.round(parseFloat(balanceAmount) * 100), // Store in cents
+        description: 'Starting Balance',
+        // Assign a categoryId. This should exist in your categories.
+
+        categoryId: 'cat_startingBalance', // Placeholder - ensure this category exists
       };
       await addEntry(balanceEntry);
 
       // 2. Create Income Entry (if amount is provided)
       if (incomeAmount && incomeAmount > 0) {
+        const recurrenceRule = createRecurrenceRule();
+        if (!recurrenceRule && incomeRecurrenceFrequency !== 'none') {
+            errorMessage = "Could not create valid recurrence rule for income.";
+            isLoading = false;
+            return;
+        }
+        /** @type {Entry} */
         const incomeEntry = {
-          date: new Date(incomeNextDate),
-          amount: Math.round(parseFloat(incomeAmount) * 100),
-          recurrence: getRecurrenceDays(),
-          isProjected: true, // Typically, future income is projected
-          description: incomeDescription.trim()
+          id: uuidv4(),
+          entryType: 'recurring_template',
+          projectedAmount: Math.round(parseFloat(incomeAmount) * 100),
+          recurrenceRule: recurrenceRule,
+          description: incomeDescription.trim(),
+          categoryId: 'cat_paycheck', // Assuming 'cat_paycheck' is a valid income category ID
         };
         await addEntry(incomeEntry);
       }
@@ -116,7 +151,7 @@
           </div>
           <div>
             <label for="incomeRecurrence">How often do you receive this income?</label>
-            <select id="incomeRecurrence" bind:value={incomeRecurrenceOption}>
+            <select id="incomeRecurrence" bind:value={incomeRecurrenceFrequency}>
               {#each recurrenceOptions as option}
                 <option value={option.value}>{option.label}</option>
               {/each}

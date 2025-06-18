@@ -1,5 +1,5 @@
 const DB_NAME = 'cashFlowDB';
-const DB_VERSION = 3;
+const DB_VERSION = 4; // Increment version due to schema changes
 const STORE_NAME = 'entries';
 
 let db;
@@ -51,7 +51,19 @@ const defaultCategories = [
     name: 'Entertainment',
     description: 'Expenses for leisure activities, movies, events, etc.',
     isPos: false
-  }
+  },
+  {
+    id: 'cat_adjustment',
+    name: 'Adjustment',
+    description: 'fixeroo',
+    isPos: false
+  },
+  {
+    id: 'cat_startingBalance',
+    name: 'Starting Balance',
+    description: 'Initial Balance Entry',
+    isPos: true
+  },
   // You can add more default categories here
 ];
 
@@ -79,79 +91,88 @@ export async function initDB() {
         request.onupgradeneeded = (event) => {
             const currentDB = event.target.result;
             const upgradeTransaction = event.target.transaction; // Use this transaction for data seeding
+            const oldVersion = event.oldVersion;
+            let entriesStore;
 
-            if (!currentDB.objectStoreNames.contains(STORE_NAME)) {
-                const objectStore = currentDB.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
-                // Define indexes for efficient querying
-                objectStore.createIndex('date', 'date', { unique: false });
-                objectStore.createIndex('isProjected', 'isProjected', { unique: false });
-                objectStore.createIndex('amount', 'amount', { unique: false });
-                objectStore.createIndex('recurrence', 'recurrence', { unique: false });
-                objectStore.createIndex('categoryID','categoryId', { unique: false });
-                objectStore.createIndex('accountID','accountId', { unique: false });
-                console.log("Object store 'entries' created with indexes.");
-            }
-            // Create 'categories' object store if it doesn't exist
-            if (!currentDB.objectStoreNames.contains('categories')) {
-                const categoriesStore = currentDB.createObjectStore('categories', {
-                keyPath: 'id' // 'id' will be the unique key
-                });
-                // Optional: Create an index on 'name' if you want to query by name,
-                // or on 'isPos' if you want to easily fetch all income/expense categories.
-                categoriesStore.createIndex('name', 'name', { unique: true });
-                categoriesStore.createIndex('isPos', 'isPos');
-                console.log('Created categories object store');
+    // Handle upgrades incrementally
+    // Each 'if' block applies changes needed to get from an older version to the next.
+    // These will run sequentially if upgrading across multiple versions.
 
-                // Populate with default categories
-                // Use the transaction provided to the upgrade callback
-                
-                const categoriesDataStore  = upgradeTransaction.objectStore('categories');
-                defaultCategories.forEach(category => {
-                categoriesDataStore.add(category);
-                });
-                console.log('Added default categories');
-            }
+            if (oldVersion < 4) {
+                // This is the logic for the V3 to V4 jump, important to nuke old DB because indexes are changing.
+                // It includes deleting and recreating 'entries', creating 'categories', 'accounts'.
+                console.log("Applying V3 to V4 schema changes...");
 
-            // Create 'accounts' object store (example)
-            if (!currentDB.objectStoreNames.contains('accounts')) {
-                const accountsStore = currentDB.createObjectStore('accounts', {
-                keyPath: 'id'
-                });
-                accountsStore.createIndex('name', 'name', { unique: true });
-                accountsStore.createIndex('type', 'type');
-                console.log('Created accounts object store');
-            }
+                let entriesStore;
+                if (currentDB.objectStoreNames.contains(STORE_NAME)) {
+                    console.warn(`Recreating '${STORE_NAME}' store for V4 schema. Existing data will be lost if not migrated.`);
+                    currentDB.deleteObjectStore(STORE_NAME);
+                    entriesStore = currentDB.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                } else {
+                    entriesStore = currentDB.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                };
 
+                entriesStore.createIndex('entryType', 'entryType', { unique: false });
+                entriesStore.createIndex('transactionDate', 'transactionDate', { unique: false });
+                entriesStore.createIndex('projectedDate', 'projectedDate', { unique: false });
+                entriesStore.createIndex('linkedProjectionId', 'linkedProjectionId', { unique: false });
+                entriesStore.createIndex('categoryId', 'categoryId', { unique: false });
+                entriesStore.createIndex('accountId', 'accountId', { unique: false });
+                console.log(`Object store '${STORE_NAME}' set up for V4.`);
+
+                if (!currentDB.objectStoreNames.contains('categories')) {
+                    const categoriesStore = currentDB.createObjectStore('categories', { keyPath: 'id' });
+                    categoriesStore.createIndex('name', 'name', { unique: true });
+                    categoriesStore.createIndex('isPos', 'isPos');
+                    console.log('Created categories object store for V4');
+                    const categoriesDataStore = upgradeTransaction.objectStore('categories');
+                    defaultCategories.forEach(category => { // Assuming defaultCategories is defined
+                        categoriesDataStore.add(category);
+                    });
+                    console.log('Added default categories for V4');
+                }; 
+
+                if (!currentDB.objectStoreNames.contains('accounts')) {
+                    const accountsStore = currentDB.createObjectStore('accounts', { keyPath: 'id' });
+                    accountsStore.createIndex('name', 'name', { unique: true });
+                    accountsStore.createIndex('type', 'type');
+                    console.log('Created accounts object store for V4');
+                };
+            };
         };
     });
-}
+};
+    /**
+     * Adds a new entry to the database.
+     * The entry object should conform to the new Entry typedef, including an 'id' (e.g., UUID).
+     * @param {Entry} entry - The entry object to add.
+     * @returns {Promise<string>} A promise that resolves with the ID of the newly added entry.
+     */
+    // Ensure you have a UUID generation function available, e.g., import { v4 as uuidv4 } from 'uuid';
+    // and call entry.id = uuidv4(); before adding if not provided.
+    export async function addEntry(entry) {
+        if (!db) await initDB();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.add(entry);
 
-/**
- * Adds a new entry to the database.
- * @param {object} entry - The entry object to add.
- *                         Example: { date: new Date(), amount: 100, recurrence: 0, isProjected: false, description: 'Lunch' }
- * @returns {Promise<number>} A promise that resolves with the ID of the newly added entry.
- */
-export async function addEntry(entry) {
-    if (!db) await initDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.add(entry);
+            // If 'id' is not auto-incrementing, it must be provided in the 'entry' object.
+            // Consider adding UUID generation here if `entry.id` might be missing.
 
-        request.onsuccess = (event) => {
-            resolve(event.target.result); // Returns the key of the new object
-        };
-        request.onerror = (event) => {
-            console.error("Error adding entry:", event.target.error);
-            reject("Error adding entry: " + event.target.error.message);
-        };
-    });
-}
+            request.onsuccess = (event) => {
+                resolve(event.target.result); // Returns the key of the new object
+            };
+            request.onerror = (event) => {
+                console.error("Error adding entry:", event.target.error);
+                reject("Error adding entry: " + event.target.error.message);
+            };
+        });
+    }
 
 /**
  * Retrieves all entries from the database.
- * @returns {Promise<Array<object>>} A promise that resolves with an array of all entries.
+ * @returns {Promise<Array<Entry>>} A promise that resolves with an array of all entries.
  */
 export async function getAllEntries() {
     if (!db) await initDB();
@@ -172,8 +193,8 @@ export async function getAllEntries() {
 
 /**
  * Retrieves a single entry by its ID.
- * @param {number} id - The ID of the entry to retrieve.
- * @returns {Promise<object|undefined>} A promise that resolves with the entry object, or undefined if not found.
+ * @param {string} id - The ID of the entry to retrieve.
+ * @returns {Promise<Entry|undefined>} A promise that resolves with the entry object, or undefined if not found.
  */
 export async function getEntry(id) {
     if (!db) await initDB();
@@ -195,8 +216,8 @@ export async function getEntry(id) {
 /**
  * Updates an existing entry in the database.
  * The entry object must have an 'id' property.
- * @param {object} entry - The entry object to update.
- * @returns {Promise<number>} A promise that resolves with the ID of the updated entry.
+ * @param {Entry} entry - The entry object to update.
+ * @returns {Promise<string>} A promise that resolves with the ID of the updated entry.
  */
 export async function updateEntry(entry) {
     if (!db) await initDB();
@@ -220,7 +241,7 @@ export async function updateEntry(entry) {
 
 /**
  * Deletes an entry from the database by its ID.
- * @param {number} id - The ID of the entry to delete.
+ * @param {string} id - The ID of the entry to delete.
  * @returns {Promise<void>} A promise that resolves when the entry is deleted.
  */
 export async function deleteEntry(id) {
@@ -242,7 +263,7 @@ export async function deleteEntry(id) {
 
 /**
  * Retrieves all categories from the database.
- * @returns {Promise<Array<object>>} A promise that resolves with an array of all category objects.
+ * @returns {Promise<Array<{id: string, name: string, description?: string, isPos?: boolean}>>} A promise that resolves with an array of all category objects.
  */
 export async function getAllCategories() {
     if (!db) await initDB();

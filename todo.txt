@@ -1,0 +1,2 @@
+npm install uuid
+update chart formatter to handle more than just actual_transaction entry types
