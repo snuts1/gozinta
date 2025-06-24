@@ -1,7 +1,7 @@
 const DB_NAME = 'cashFlowDB';
-const DB_VERSION = 4; // Increment version due to schema changes
+const DB_VERSION = 5; // Increment version due to schema changes
 const STORE_NAME = 'entries';
-
+const STORES = [STORE_NAME, 'categories', 'accounts', 'scenarios', 'debts'];
 let db;
 
 /**
@@ -135,10 +135,32 @@ export async function initDB() {
                 if (!currentDB.objectStoreNames.contains('accounts')) {
                     const accountsStore = currentDB.createObjectStore('accounts', { keyPath: 'id' });
                     accountsStore.createIndex('name', 'name', { unique: true });
-                    accountsStore.createIndex('type', 'type');
                     console.log('Created accounts object store for V4');
                 };
             };
+
+            if (oldVersion < 5) {
+                console.log("Applying V4 to V5 schema changes for scenarios and debts...");
+
+                // Add scenarioId index to the existing entries store
+                const entriesStore = upgradeTransaction.objectStore(STORE_NAME);
+                if (!entriesStore.indexNames.contains('scenarioId')) {
+                    entriesStore.createIndex('scenarioId', 'scenarioId', { unique: false });
+                    console.log(`Created 'scenarioId' index on '${STORE_NAME}' store.`);
+                }
+
+                // Create a new object store for scenarios
+                if (!currentDB.objectStoreNames.contains('scenarios')) {
+                    currentDB.createObjectStore('scenarios', { keyPath: 'id' });
+                    console.log('Created scenarios object store for V5');
+                }
+
+                // Create a new object store for debts
+                if (!currentDB.objectStoreNames.contains('debts')) {
+                    currentDB.createObjectStore('debts', { keyPath: 'id' });
+                    console.log('Created debts object store for V5');
+                }
+            }
         };
     });
 };
@@ -153,7 +175,7 @@ export async function initDB() {
     export async function addEntry(entry) {
         if (!db) await initDB();
         return new Promise((resolve, reject) => {
-            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const transaction = db.transaction(STORES, 'readwrite'); // Use all stores for transaction
             const store = transaction.objectStore(STORE_NAME);
             const request = store.add(entry);
 
@@ -177,7 +199,7 @@ export async function initDB() {
 export async function getAllEntries() {
     if (!db) await initDB();
     return new Promise((resolve, reject) => {
-        const transaction = db.transaction([STORE_NAME], 'readonly');
+        const transaction = db.transaction(STORES, 'readonly'); // Use all stores for transaction
         const store = transaction.objectStore(STORE_NAME);
         const request = store.getAll();
 
@@ -199,7 +221,7 @@ export async function getAllEntries() {
 export async function getEntry(id) {
     if (!db) await initDB();
     return new Promise((resolve, reject) => {
-        const transaction = db.transaction([STORE_NAME], 'readonly');
+        const transaction = db.transaction(STORES, 'readonly'); // Use all stores for transaction
         const store = transaction.objectStore(STORE_NAME);
         const request = store.get(id);
 
@@ -225,7 +247,7 @@ export async function updateEntry(entry) {
         if (!entry.id) {
             return reject("Entry must have an id to be updated.");
         }
-        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const transaction = db.transaction(STORES, 'readwrite'); // Use all stores for transaction
         const store = transaction.objectStore(STORE_NAME);
         const request = store.put(entry); // put() updates if key exists, otherwise adds.
 
@@ -247,7 +269,7 @@ export async function updateEntry(entry) {
 export async function deleteEntry(id) {
     if (!db) await initDB();
     return new Promise((resolve, reject) => {
-        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const transaction = db.transaction(STORES, 'readwrite'); // Use all stores for transaction
         const store = transaction.objectStore(STORE_NAME);
         const request = store.delete(id);
 
@@ -268,7 +290,7 @@ export async function deleteEntry(id) {
 export async function getAllCategories() {
     if (!db) await initDB();
     return new Promise((resolve, reject) => {
-        const transaction = db.transaction(['categories'], 'readonly');
+        const transaction = db.transaction(STORES, 'readonly'); // Use all stores for transaction
         const store = transaction.objectStore('categories');
         const request = store.getAll();
 
@@ -278,6 +300,165 @@ export async function getAllCategories() {
         request.onerror = (event) => {
             console.error("Error fetching all categories:", event.target.error);
             reject("Error fetching all categories: " + event.target.error.message);
+        };
+    });
+}
+
+/**
+ * Adds a new account to the database.
+ * @param {import('./types.js').Account} account - The account object to add.
+ * @returns {Promise<string>} A promise that resolves with the ID of the newly added account.
+ */
+export async function addAccount(account) {
+    if (!db) await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES, 'readwrite');
+        const store = transaction.objectStore('accounts');
+        const request = store.add(account);
+
+        request.onsuccess = (event) => resolve(event.target.result);
+        request.onerror = (event) => {
+            console.error("Error adding account:", event.target.error);
+            reject("Error adding account: " + event.target.error.message);
+        };
+    });
+}
+
+/**
+ * Retrieves all accounts from the database.
+ * @returns {Promise<Array<import('./types.js').Account>>} A promise that resolves with an array of all accounts.
+ */
+export async function getAllAccounts() {
+    if (!db) await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES, 'readonly');
+        const store = transaction.objectStore('accounts');
+        const request = store.getAll();
+
+        request.onsuccess = (event) => resolve(event.target.result);
+        request.onerror = (event) => {
+            console.error("Error fetching all accounts:", event.target.error);
+            reject("Error fetching all accounts: " + event.target.error.message);
+        };
+    });
+}
+
+/**
+ * Adds a new debt to the database.
+ * @param {import('./types.js').Debt} debt - The debt object to add.
+ * @returns {Promise<string>} A promise that resolves with the ID of the newly added debt.
+ */
+export async function addDebt(debt) {
+    if (!db) await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES, 'readwrite');
+        const store = transaction.objectStore('debts');
+        const request = store.add(debt);
+
+        request.onsuccess = (event) => resolve(event.target.result);
+        request.onerror = (event) => {
+            console.error("Error adding debt:", event.target.error);
+            reject("Error adding debt: " + event.target.error.message);
+        };
+    });
+}
+
+/**
+ * Retrieves all debts from the database.
+ * @returns {Promise<Array<import('./types.js').Debt>>} A promise that resolves with an array of all debts.
+ */
+export async function getAllDebts() {
+    if (!db) await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES, 'readonly');
+        const store = transaction.objectStore('debts');
+        const request = store.getAll();
+
+        request.onsuccess = (event) => resolve(event.target.result);
+        request.onerror = (event) => {
+            console.error("Error fetching all debts:", event.target.error);
+            reject("Error fetching all debts: " + event.target.error.message);
+        };
+    });
+}
+
+/**
+ * Adds a new scenario to the database.
+ * @param {import('./types.js').Scenario} scenario - The scenario object to add.
+ * @returns {Promise<string>} A promise that resolves with the ID of the newly added scenario.
+ */
+export async function addScenario(scenario) {
+    if (!db) await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES, 'readwrite');
+        const store = transaction.objectStore('scenarios');
+        const request = store.add(scenario);
+
+        request.onsuccess = (event) => resolve(event.target.result);
+        request.onerror = (event) => {
+            console.error("Error adding scenario:", event.target.error);
+            reject("Error adding scenario: " + event.target.error.message);
+        };
+    });
+}
+
+/**
+ * Retrieves all scenarios from the database.
+ * @returns {Promise<Array<import('./types.js').Scenario>>} A promise that resolves with an array of all scenarios.
+ */
+export async function getAllScenarios() {
+    if (!db) await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES, 'readonly');
+        const store = transaction.objectStore('scenarios');
+        const request = store.getAll();
+
+        request.onsuccess = (event) => resolve(event.target.result);
+        request.onerror = (event) => {
+            console.error("Error fetching all scenarios:", event.target.error);
+            reject("Error fetching all scenarios: " + event.target.error.message);
+        };
+    });
+}
+
+/**
+ * Retrieves all entries needed to build a projection for a given scenario.
+ * This includes all base entries plus the specific entries for that scenario.
+ *
+ * @param {string | null} scenarioId - The ID of the scenario, or null for the base timeline.
+ * @returns {Promise<Array<import('./types.js').Entry>>} A promise that resolves with an array of combined entries.
+ */
+export async function getEntriesForProjection(scenarioId) {
+    if (!db) await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES, 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.getAll(); // Fetch all entries
+
+        request.onsuccess = (event) => {
+            const allEntries = event.target.result;
+            const combinedEntries = [];
+
+            // Add base entries (those without any scenarioId)
+            for (const entry of allEntries) {
+                if (!entry.scenarioId) {
+                    combinedEntries.push(entry);
+                }
+            }
+
+            // If a specific scenario is requested, add its entries
+            if (scenarioId) {
+                for (const entry of allEntries) {
+                    if (entry.scenarioId === scenarioId) {
+                        combinedEntries.push(entry);
+                    }
+                }
+            }
+            resolve(combinedEntries);
+        };
+        request.onerror = (event) => {
+            console.error("Error fetching entries for projection:", event.target.error);
+            reject("Error fetching entries for projection: " + event.target.error.message);
         };
     });
 }

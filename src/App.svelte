@@ -56,6 +56,38 @@
       currentBalance = 0;
     }
   }
+  $: oneTimeEntries = entries.filter(e => e.entryType === 'actual_transaction'|| e.entryType === 'one_time_projection');
+  $: budgetEntries = entries.filter(e => e.entryType === 'recurring_template' );
+    // Use .map() to transform raw data into display-ready objects.
+  // This separates data logic from presentation.
+  $: displayableOneTimes = oneTimeEntries.map(entry => {
+    const amount = entry.actualAmount || entry.projectedAmount || 0;
+    return {
+      id: entry.id,
+      description: entry.description,
+      displayAmount: (amount / 100).toFixed(2),
+      isNegative: amount < 0,
+      displayDate: entry.transactionDate || entry.projectedDate ? new Date(entry.transactionDate).toLocaleDateString() : 'No Date',
+      debugInfo: `(ID: ${entry.id})`
+    };
+  });
+
+  $: displayableBudgets = budgetEntries.map(entry => {
+    const amount = entry.actualAmount || entry.projectedAmount || 0;
+    let displayText = '(Budget)';
+
+    if (entry.entryType === 'recurring_template' && entry.recurrenceRule) {
+      displayText = `(Recurs every ${entry.recurrenceRule.interval} ${entry.recurrenceRule.frequency} starting ${new Date(entry.recurrenceRule.seriesStartDate).toLocaleDateString()})`;
+    }
+    return {
+      id: entry.id,
+      description: entry.description,
+      displayAmount: (amount / 100).toFixed(2),
+      isNegative: amount < 0,
+      displayText: displayText,
+      debugInfo: `(ID: ${entry.id})`
+    };
+  });
 </script>
 
 <main>
@@ -86,36 +118,46 @@
   {/if}
 
   <!-- Basic display of entries for verification -->
-  <h2>Transactions</h2>
-  {#if entries.length === 0}
-    <p>No transactions yet. Please complete the initial setup or add a new transaction.</p>
+  <h2>One Time Entries</h2>
+  {#if oneTimeEntries.length === 0}
+    <p>No one-time entries yet. Please complete the initial setup or add a new transaction.</p>
   {:else}
     <ul>
-      {#each entries as entry (entry.id)}
-        {@const amount = entry.entryType === 'actual_transaction' ? entry.actualAmount : entry.projectedAmount}
-        {@const dateToDisplay = entry.entryType === 'actual_transaction' ? entry.transactionDate : (entry.entryType === 'one_time_projection' ? entry.projectedDate : (entry.recurrenceRule ? entry.recurrenceRule.seriesStartDate : null))}
-        {@const displayType = entry.entryType === 'actual_transaction' ? '(Actual)' : '(Projected Template/Goal)'}
-
+      {#each displayableOneTimes as entry (entry.id)}
         <li>
           {entry.description}:
-          {#if typeof amount === 'number'}
-            <span style="color: {amount < 0 ? '#ff6b6b' : '#19e155'};">
-              { (amount / 100).toFixed(2) }
+            <span style="color: {entry.isNegative ? '#ff6b6b' : '#19e155'};">
+              { (entry.displayAmount)}
             </span>
-          {:else}
-            <span>(No amount)</span>
+
+          {#if entry.displayDate}
+            on {new Date(entry.displayDate).toLocaleDateString()}
           {/if}
 
-          {#if dateToDisplay}
-            on {new Date(dateToDisplay).toLocaleDateString()}
-          {/if}
+          {entry.debugInfo}
+          <span style="font-size: 0.8em; color: #888;"> (ID: {entry.id})</span> <!-- Debugging info -->
+        </li>
+      {/each}
+    </ul>
+  {/if}
+  <h2>Budgets</h2>
+  {#if budgetEntries.length === 0}
+    <p>No budgets yet.</p>
+  {:else}
+    <ul>
+      {#each displayableBudgets as entry (entry.id)}
+        <li>
+          {entry.description}:
+            <span style="color: {entry.isNegative ? '#ff6b6b' : '#19e155'};">
+              { (entry.displayAmount)}
+            </span>
 
-          {#if entry.entryType === 'recurring_template' && entry.recurrenceRule}
-            (Recurs every {entry.recurrenceRule.interval} {entry.recurrenceRule.frequency})
+          {#if entry.displayText}
+            {entry.displayText}
           {/if}
-
-          {displayType}
-          <span style="font-size: 0.8em; color: #888;"> (Type: {entry.entryType}, ID: {entry.id})</span> <!-- Debugging info -->
+        
+          {entry.debugInfo}
+          <span style="font-size: 0.8em; color: #888;"> (ID: {entry.id})</span> <!-- Debugging info -->
         </li>
       {/each}
     </ul>
