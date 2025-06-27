@@ -1,13 +1,30 @@
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { VitePWA } from 'vite-plugin-pwa'
+import sveltePreprocess from 'svelte-preprocess';
+import { optimizeImports, optimizeCss} from 'carbon-preprocess-svelte';
+import path from 'path'; 
+
 
 const repositoryName = 'gozinta'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    svelte(),
+    svelte({
+      preprocess: [
+        optimizeImports(), // Handles Carbon component import optimization
+        sveltePreprocess({ // Handles general SCSS, TypeScript, PostCSS, etc.
+          scss: {
+            // If you need to specify includePaths for Sass to find @carbon/styles,
+            // you can do it here. However, direct npm package imports in SCSS
+            // usually work if `sass` is correctly resolving node_modules.
+          includePaths: [path.resolve('./node_modules')],
+          },
+        })
+      ]
+  }),
+    optimizeCss(),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',

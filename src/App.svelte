@@ -1,11 +1,16 @@
 <script>
   import { onMount } from 'svelte';
+  import { initDB, addEntry, getAllEntries, getAllCategories } from './db.js';
   import Summary from './Summary.svelte'
   import AddEntryButton from './AddEntryButton.svelte';
   import SetupForm from './SetupForm.svelte';
   import InputForm from './InputForm.svelte';
   import TimelineChart from './TimelineChart.svelte';
-  import { initDB, addEntry, getAllEntries } from './db.js';
+  import BudgetLog from './BudgetLog.svelte';
+  import OneTimeLog from './OneTimeLog.svelte';
+  import GaugeChart from './GaugeChart.svelte';
+  import DonutSample from './DonutSample.svelte';
+  import '@carbon/charts-svelte/styles.css';
   /**
    * @typedef {import('./types.js').Entry} Entry
    * @typedef {import('./types.js').EntryType} EntryType
@@ -14,14 +19,16 @@
   let showSetupModal = false;
   let showEntryFormModal = false;
   let entries = [];
+  let categories = [];
   let currentBalance =0;
     onMount(async () => {
     try {
       await initDB();
       console.log("CashFlow DB Initialized from App.svelte");
       await loadEntries();
+      categories = await getAllCategories();
       if (entries.length === 0) {
-        // If no entries, prompt for initial setup
+        // If no entries, prompt for initial setup.
         showSetupModal = true;
       }
     } catch (error) {
@@ -56,38 +63,7 @@
       currentBalance = 0;
     }
   }
-  $: oneTimeEntries = entries.filter(e => e.entryType === 'actual_transaction'|| e.entryType === 'one_time_projection');
-  $: budgetEntries = entries.filter(e => e.entryType === 'recurring_template' );
-    // Use .map() to transform raw data into display-ready objects.
-  // This separates data logic from presentation.
-  $: displayableOneTimes = oneTimeEntries.map(entry => {
-    const amount = entry.actualAmount || entry.projectedAmount || 0;
-    return {
-      id: entry.id,
-      description: entry.description,
-      displayAmount: (amount / 100).toFixed(2),
-      isNegative: amount < 0,
-      displayDate: entry.transactionDate || entry.projectedDate ? new Date(entry.transactionDate).toLocaleDateString() : 'No Date',
-      debugInfo: `(ID: ${entry.id})`
-    };
-  });
 
-  $: displayableBudgets = budgetEntries.map(entry => {
-    const amount = entry.actualAmount || entry.projectedAmount || 0;
-    let displayText = '(Budget)';
-
-    if (entry.entryType === 'recurring_template' && entry.recurrenceRule) {
-      displayText = `(Recurs every ${entry.recurrenceRule.interval} ${entry.recurrenceRule.frequency} starting ${new Date(entry.recurrenceRule.seriesStartDate).toLocaleDateString()})`;
-    }
-    return {
-      id: entry.id,
-      description: entry.description,
-      displayAmount: (amount / 100).toFixed(2),
-      isNegative: amount < 0,
-      displayText: displayText,
-      debugInfo: `(ID: ${entry.id})`
-    };
-  });
 </script>
 
 <main>
@@ -95,10 +71,24 @@
   <div>
     <Summary {currentBalance} />
   </div>
+
   <div>
     <AddEntryButton on:click={handleAddEntryClick} />
   </div>
-
+  <div>
+    <BudgetLog {entries} />
+  </div>
+  <div>
+    <OneTimeLog {entries} />
+  </div>
+   <!---- <div>
+    <GaugeChart {entries} {categories} width="300px" height="300px" />
+  </div>-->
+  {#if entries.length > 0 && categories.length > 0}
+  <div>
+    <DonutSample {entries} {categories} />
+  </div>
+  {/if}
 
 
   {#if showSetupModal}
@@ -118,56 +108,15 @@
   {/if}
 
   <!-- Basic display of entries for verification -->
-  <h2>One Time Entries</h2>
-  {#if oneTimeEntries.length === 0}
-    <p>No one-time entries yet. Please complete the initial setup or add a new transaction.</p>
-  {:else}
-    <ul>
-      {#each displayableOneTimes as entry (entry.id)}
-        <li>
-          {entry.description}:
-            <span style="color: {entry.isNegative ? '#ff6b6b' : '#19e155'};">
-              { (entry.displayAmount)}
-            </span>
-
-          {#if entry.displayDate}
-            on {new Date(entry.displayDate).toLocaleDateString()}
-          {/if}
-
-          {entry.debugInfo}
-          <span style="font-size: 0.8em; color: #888;"> (ID: {entry.id})</span> <!-- Debugging info -->
-        </li>
-      {/each}
-    </ul>
-  {/if}
-  <h2>Budgets</h2>
-  {#if budgetEntries.length === 0}
-    <p>No budgets yet.</p>
-  {:else}
-    <ul>
-      {#each displayableBudgets as entry (entry.id)}
-        <li>
-          {entry.description}:
-            <span style="color: {entry.isNegative ? '#ff6b6b' : '#19e155'};">
-              { (entry.displayAmount)}
-            </span>
-
-          {#if entry.displayText}
-            {entry.displayText}
-          {/if}
-        
-          {entry.debugInfo}
-          <span style="font-size: 0.8em; color: #888;"> (ID: {entry.id})</span> <!-- Debugging info -->
-        </li>
-      {/each}
-    </ul>
-  {/if}
+  
   <div>
     <TimelineChart {entries} />
   </div>
 </main>
 
-<style>
+<style global lang="scss">
+  @use '@carbon/themes';
+  @use '@carbon/type';
   :global(body) {
     margin: 0; /* Remove default browser margin & override template */
     display: block; /* Override template's flex/grid centering */

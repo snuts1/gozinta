@@ -4,12 +4,20 @@
   import { getAllEntries } from './db.js'; // Adjust path if db.js is elsewhere
   import { formatDataForDailyTimeline } from './utils/timelineFormatter.js'; // Adjust path and function name
   import { categories as allCategoriesStore, loadCategories } from './stores/categoryStore.js'; // Import category store
-
+  import { scaleLinear, scaleBand } from 'd3';
+  import { flip } from 'svelte/animate';
   export let entries = [];
 
   let chartData = [];
+  let data = [];
   let chartError = null;
   let currentChartOptions = {};
+  let reactiveXVals = [];
+  let reactiveYTicks = [];
+  let reactiveYTicksFormatted = [];
+  let reactiveYVals = [];
+
+
 
   // Define the options for the chart
   // Refer to Carbon Charts documentation for all available options
@@ -95,6 +103,9 @@
       currentChartOptions = { ...baseChartOptions }; // Use base options if colors can't be determined
     }
   }
+
+  // Compute values X and Y value of Arrays
+  $: console.log("Chart Data: ", {chartData});
 </script>
 
 {#if chartError}
@@ -111,9 +122,57 @@
 
 <style>
   .chart-container {
-    /* This is the outer container, you might use it for margins or overall positioning */
-    margin-top: 20px;
-    margin-bottom: 20px;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    margin-top: 50px;
+    margin-left: 8
+    0px;
+  }
+
+  select{
+    color: black;
+    padding: 5px;
+    width: 190px;
+  }
+
+  svg {
+    max-width: 100%;
+    max-height: 100%;
+    margin: auto;
+  }
+
+  .y-axis {
+    font-size: "10px";
+    font-family: sans-serif;
+    text-anchor: "end";
+  }
+
+  .x-axis {
+    font-size: "10px";
+    font-family: sans-serif;
+    text-anchor: "end";
+  }
+
+  .tick {
+    opacity: 1;
+  }
+
+  .tick-start {
+    stroke: black;
+    stroke-opacity: 1;
+  }
+
+  .tick-grid {
+    stroke: black;
+    stroke-opacity: 0.2;
+    font-size: "11px";
+    color: black;
+  }
+
+  .tick text {
+    fill: black;
+    text-anchor: start;
   }
   .chart-wrapper {
     /* This div directly wraps the chart component. */
