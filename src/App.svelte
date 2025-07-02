@@ -10,6 +10,8 @@
   import OneTimeLog from './OneTimeLog.svelte';
   import GaugeChart from './GaugeChart.svelte';
   import DonutSample from './DonutSample.svelte';
+  import NavBar from './NavBar.svelte';
+  import { activeView } from './stores/navigationStore.js';
   import '@carbon/charts-svelte/styles.css';
   /**
    * @typedef {import('./types.js').Entry} Entry
@@ -65,9 +67,12 @@
   }
 
 </script>
-
+<header>
+    <NavBar/>
+  </header>
 <main>
-  <h1><i>gozinta</i></h1>
+  
+  {#if $activeView === 'home'}
   <div>
     <Summary {currentBalance} />
   </div>
@@ -75,20 +80,28 @@
   <div>
     <AddEntryButton on:click={handleAddEntryClick} />
   </div>
+  {/if}
+{#if $activeView ==='logs'}
   <div>
     <BudgetLog {entries} />
   </div>
   <div>
     <OneTimeLog {entries} />
   </div>
+  {/if}
    <!---- <div>
     <GaugeChart {entries} {categories} width="300px" height="300px" />
   </div>-->
-  {#if entries.length > 0 && categories.length > 0}
+
+  {#if $activeView === 'graphs' &&entries.length > 0 && categories.length > 0}
   <div>
     <DonutSample {entries} {categories} />
   </div>
+  <div>
+    <TimelineChart {entries} />
+  </div>
   {/if}
+
 
 
   {#if showSetupModal}
@@ -109,9 +122,7 @@
 
   <!-- Basic display of entries for verification -->
   
-  <div>
-    <TimelineChart {entries} />
-  </div>
+
 </main>
 
 <style global lang="scss">
@@ -126,6 +137,13 @@
     background-color: #1e1e1e; /* Dark background for the whole page */
     color: #e0e0e0; /* Light text color */
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100; /* Ensures it stays on top of other content */
+    background-color: #2c2c2c; /* A dark background to match the theme */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.4); /* Adds a subtle shadow for depth */
   }
   h1 {
     font-size: 3.2em;

@@ -21,10 +21,10 @@
     // Colors the sections based on their category  
     const categoryMap = new Map(categories.map(c => [c.name,c.isPos]))
     chartData.forEach(n => {
-        colors.push(categoryMap.get(n.group) ? '#46E736' : '#E92525');
+        colors.push(n.isPos ? '#46E736' : '#E92525');
     });
+    console.log('Donut Chart Data: ', chartData);
     //colors = quantize(t => interpolatePlasma(t * 0.7 + 0.3), chartData.length);
-
   }
 
 
@@ -36,7 +36,7 @@
   const strokeWidth = 1;
   const strokeLinejoin = 'round';
   const outerRadius = Math.min(width, height) * 0.5 - 60; // the outer radius of the circle, in pixels
-  const innerRadius = 130; // the inner radius of the chart, in pixels
+  const innerRadius = 125; // the inner radius of the chart, in pixels
   const labelPosition = 0.7; // the position of the label offset from center
   const labelRadius = (innerRadius * labelPosition + outerRadius * 0.6); // center radius of labels
   const strokeColorWOR = 'white';
@@ -73,5 +73,8 @@
     max-width: 570px; /* Match the original SVG width to prevent it from becoming too large on desktops */
     width: 100%;      /* Ensure it scales down on smaller screens */
     margin: 2rem auto;/* Center the container and add some vertical spacing */
+    /* background-color: #2c2c2c; */
+    border: 3px solid #444;
+    border-radius: 30px;
   }
 </style>

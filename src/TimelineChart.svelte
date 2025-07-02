@@ -1,11 +1,12 @@
 <script>
   import { onMount } from 'svelte';
-  import { BarChartStacked } from '@carbon/charts-svelte';
+  import { BarChartStacked , ChartTheme} from '@carbon/charts-svelte';
   import { getAllEntries } from './db.js'; // Adjust path if db.js is elsewhere
   import { formatDataForDailyTimeline } from './utils/timelineFormatter.js'; // Adjust path and function name
   import { categories as allCategoriesStore, loadCategories } from './stores/categoryStore.js'; // Import category store
   import { scaleLinear, scaleBand } from 'd3';
   import { flip } from 'svelte/animate';
+    import { g90 } from '@carbon/themes';
   export let entries = [];
 
   let chartData = [];
@@ -49,7 +50,8 @@
     },
     legend: {
       enabled: false // Disable the legend
-    }
+    },
+    theme: ChartTheme.G90,
   };
   let localCategories = [];
   onMount(async () => {
