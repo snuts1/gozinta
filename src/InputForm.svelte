@@ -1,7 +1,7 @@
 <script>
   import { createEventDispatcher, onMount } from 'svelte';
   import { v4 as uuidv4 } from 'uuid';
-  import { addEntry, getAllCategories } from './db.js';
+  import { addEntry, updateEntry, getAllCategories } from './db.js';
 
   /**
    * @typedef {import('./types.js').Entry} Entry
@@ -12,7 +12,12 @@
    */
 
   export let show = false;
+  /** @type {Entry | null} */
+  export let entry = null;
   const dispatch = createEventDispatcher();
+
+  // A computed property to easily check if we are editing an existing entry.
+  $: isEditMode = !!entry;
 
   /** @type {EntryType} */
   let entryType = 'actual_transaction';
@@ -59,6 +64,31 @@
     }
   });
 
+  // This reactive block populates the form when it's opened in edit mode,
+  // or resets it for add mode.
+  $: {
+    if (show && isEditMode) {
+      // Edit mode: populate form from the 'entry' prop
+      entryType = entry.entryType;
+      description = entry.description;
+      categoryId = entry.categoryId;
+
+      if (entry.entryType === 'actual_transaction') {
+        amount = (entry.actualAmount ?? 0) / 100;
+        transactionDate = new Date(entry.transactionDate).toISOString().split('T')[0];
+      } else {
+        amount = (entry.projectedAmount ?? 0) / 100;
+        if (entry.entryType === 'one_time_projection') {
+          projectedDate = new Date(entry.projectedDate).toISOString().split('T')[0];
+        } else if (entry.entryType === 'recurring_template' && entry.recurrenceRule) {
+          ({ frequency: recurrenceFrequency, interval: recurrenceInterval, seriesStartDate: seriesStartDate } = entry.recurrenceRule);
+          seriesStartDate = new Date(seriesStartDate).toISOString().split('T')[0];
+        }
+      }
+    } else if (show && !isEditMode) {
+      resetForm();
+    }
+  }
   /** @returns {RecurrenceRule | undefined} */
   function createRecurrenceRuleForTemplate() {
     if (entryType !== 'recurring_template' || !amount || amount === 0) {
@@ -91,8 +121,8 @@
 
     isLoading = true;
     /** @type {Partial<Entry>} */
-    let newEntryData = {
-      id: uuidv4(),
+    let entryData = {
+      id: isEditMode ? entry.id : uuidv4(),
       description: description.trim(),
       categoryId: categoryId,
       // accountId: accountId || undefined, // Future
@@ -102,30 +132,30 @@
     
     switch (entryType) {
       case 'actual_transaction':
-        newEntryData = {
-          ...newEntryData,
+        entryData = {
+          ...entryData,
           entryType: 'actual_transaction',
           actualAmount: numericAmount,
           transactionDate: new Date(transactionDate),
         };
         break;
       case 'one_time_projection':
-        newEntryData = {
-          ...newEntryData,
+        entryData = {
+          ...entryData,
           entryType: 'one_time_projection',
           projectedAmount: numericAmount,
           projectedDate: new Date(projectedDate),
         };
         break;
       case 'recurring_template':
-        const recurrenceRule = createRecurrenceRuleForTemplate();
+        const recurrenceRule = createRecurrenceRuleForTemplate()
         if (!recurrenceRule) {
           errorMessage = "Could not create valid recurrence rule.";
           isLoading = false;
           return;
         }
-        newEntryData = {
-          ...newEntryData,
+        entryData = {
+          ...entryData,
           entryType: 'recurring_template',
           projectedAmount: numericAmount,
           recurrenceRule: recurrenceRule,
@@ -138,12 +168,18 @@
     }
 
     try {
-      await addEntry(/** @type {Entry} */ (newEntryData));
-      dispatch('entryAdded');
+      if (isEditMode) {
+        await updateEntry(/** @type {Entry} */ (entryData));
+        dispatch('entryUpdated');
+      } else {
+        await addEntry(/** @type {Entry} */ (entryData));
+        dispatch('entryAdded');
+      }
       resetForm();
     } catch (error) {
-      console.error('Error adding entry:', error);
-      errorMessage = `Failed to add entry: ${error.message || error}`;
+      const action = isEditMode ? 'update' : 'add';
+      console.error(`Error ${action}ing entry:`, error);
+      errorMessage = `Failed to ${action} entry: ${error.message || error}`;
     } finally {
       isLoading = false;
     }
@@ -151,16 +187,15 @@
 
   function resetForm() {
     description = '';
-    amount = null;
-    // categoryId = categories.length > 0 ? categories[0].id : ''; // Keep category or reset as preferred
+    amount = null
+    entryType = 'actual_transaction';
+    categoryId = categories.length > 0 ? categories[0].id : '';
     transactionDate = new Date().toISOString().split('T')[0];
     projectedDate = new Date().toISOString().split('T')[0];
     seriesStartDate = new Date().toISOString().split('T')[0];
     recurrenceFrequency = 'monthly';
     recurrenceInterval = 1;
-    // entryType = 'actual_transaction'; // Or keep current type
   }
-
   function handleClose() {
     if (!isLoading) {
       // resetForm(); // Optionally reset form on close
@@ -172,12 +207,12 @@
 {#if show}
   <div class="modal-overlay" on:click|self={handleClose}>
     <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="entry-form-title">
-      <h2 id="entry-form-title">Add New Entry</h2>
+      <h2 id="entry-form-title">{isEditMode ? 'Edit Entry' : 'Add New Entry'}</h2>
 
       <form on:submit|preventDefault={handleSubmit}>
         <div>
           <label for="entryType">Entry Type:</label>
-          <select id="entryType" bind:value={entryType}>
+          <select id="entryType" bind:value={entryType} disabled={isEditMode}>
             {#each entryTypeOptions as option}
               <option value={option.value}>{option.label}</option>
             {/each}
@@ -252,7 +287,7 @@
         <div class="modal-actions">
           <button type="button" on:click={handleClose} disabled={isLoading}>Cancel</button>
           <button type="submit" class="primary" disabled={isLoading}>
-            {isLoading ? 'Saving...' : 'Add Entry'}
+            {isLoading ? 'Saving...' : (isEditMode ? 'Update Entry' : 'Add Entry')}
           </button>
         </div>
       </form>

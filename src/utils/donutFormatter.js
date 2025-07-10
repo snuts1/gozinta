@@ -18,6 +18,7 @@ export function formatDataForDonut(entries, categories) {
     const categoryPosMap = new Map(categories.map(cat => [cat.name, cat.isPos]));
     const categoryTotals = new Map();
     let netTotal = 0;
+    let amountInDollars=0;
 
     for (const e of entries) {
         if (e.entryType !== 'recurring_template'){
@@ -26,7 +27,16 @@ export function formatDataForDonut(entries, categories) {
 
         const categoryName = categoryNameMap.get(e.categoryId) || 'Uncategorized';
         const categoryPos = categoryPosMap.get(e.categoryName) || false;
-        const amountInDollars = Math.abs(e.projectedAmount / 100); // amounts are stored in cents
+        if(e.recurrenceRule.frequency==='daily'){
+            amountInDollars = Math.round((Math.abs(e.projectedAmount*365 / 12) / 100)); // amounts are stored in cents
+        }
+        else if(e.recurrenceRule.frequency==='weekly'){
+            amountInDollars = Math.round((Math.abs(e.projectedAmount*52 / 12) / 100));
+        }
+        else {
+            amountInDollars = Math.round(Math.abs(e.projectedAmount / 100));
+        }
+        
         const currentTotal = categoryTotals.get(categoryName) || 0;
 
         categoryTotals.set(categoryName, currentTotal + amountInDollars);

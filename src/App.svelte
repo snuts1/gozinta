@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { initDB, addEntry, getAllEntries, getAllCategories } from './db.js';
+  import { initDB, getAllEntries, getAllCategories } from './db.js';
   import Summary from './Summary.svelte'
   import AddEntryButton from './AddEntryButton.svelte';
   import SetupForm from './SetupForm.svelte';
@@ -20,6 +20,8 @@
 
   let showSetupModal = false;
   let showEntryFormModal = false;
+  /** @type {Entry | null} */
+  let entryForForm = null;
   let entries = [];
   let categories = [];
   let currentBalance =0;
@@ -43,12 +45,20 @@
   }
 
   function handleAddEntryClick() {
+    entryForForm = null; // Ensure we are in "add" mode
+    showEntryFormModal = true;
+  }
+
+  /** @param {CustomEvent<Entry>} event */
+  function handleEditEntryClick(event) {
+    entryForForm = event.detail;
     showEntryFormModal = true;
   }
 
   async function refreshDataAndCloseModals() {
     showSetupModal = false;
     showEntryFormModal = false;
+    entryForForm = null; // Always reset the form entry on close/completion
     await loadEntries();
   }
 
@@ -82,24 +92,26 @@
   </div>
   {/if}
 {#if $activeView ==='logs'}
+
   <div>
-    <BudgetLog {entries} />
+    <OneTimeLog {entries} on:edit={handleEditEntryClick} />
   </div>
-  <div>
-    <OneTimeLog {entries} />
+    <div>
+    <TimelineChart {entries} />
   </div>
   {/if}
    <!---- <div>
     <GaugeChart {entries} {categories} width="300px" height="300px" />
   </div>-->
 
-  {#if $activeView === 'graphs' &&entries.length > 0 && categories.length > 0}
+  {#if $activeView === 'budget' &&entries.length > 0 && categories.length > 0}
   <div>
     <DonutSample {entries} {categories} />
   </div>
-  <div>
-    <TimelineChart {entries} />
+    <div>
+    <BudgetLog {entries} on:edit={handleEditEntryClick} />
   </div>
+
   {/if}
 
 
@@ -114,9 +126,14 @@
 
   {#if showEntryFormModal}
     <InputForm
+      entry={entryForForm}
       show={showEntryFormModal}
-      on:close={() => showEntryFormModal = false}
+      on:close={() => {
+        showEntryFormModal = false;
+        entryForForm = null;
+      }}
       on:entryAdded={refreshDataAndCloseModals}
+      on:entryUpdated={refreshDataAndCloseModals}
     />
   {/if}
 

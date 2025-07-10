@@ -7,7 +7,7 @@
     </div>
     <div class="nav-links">
         <button class:active={$activeView === 'home'} on:click={() => activeView.set('home')}>Home</button>
-        <button class:active={$activeView === 'graphs'} on:click={() => activeView.set('graphs')}>Graphs</button>
+        <button class:active={$activeView === 'budget'} on:click={() => activeView.set('budget')}>Budget</button>
         <button class:active={$activeView === 'logs'} on:click={() => activeView.set('logs')}>Logs</button>
     </div>
 </nav>

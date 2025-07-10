@@ -35,14 +35,14 @@
   const fontSize = 14; // the font size of the x and y values
   const strokeWidth = 1;
   const strokeLinejoin = 'round';
-  const outerRadius = Math.min(width, height) * 0.5 - 60; // the outer radius of the circle, in pixels
-  const innerRadius = 125; // the inner radius of the chart, in pixels
-  const labelPosition = 0.7; // the position of the label offset from center
+  const outerRadius = Math.min(width, height) * 0.5 - 90; // the outer radius of the circle, in pixels
+  const innerRadius = 70; // the inner radius of the chart, in pixels
+  const labelPosition = 0.9; // the position of the label offset from center
   const labelRadius = (innerRadius * labelPosition + outerRadius * 0.6); // center radius of labels
   const strokeColorWOR = 'white';
   const strokeColorWIR = 'none';
   const stroke = innerRadius > 0 ? strokeColorWIR : strokeColorWOR;
-  const padAngle = stroke === 'none' ? 1 / outerRadius : 0; // angular separation between wedges
+  const padAngle = stroke === 'white' ? 1 / outerRadius : 0.05; // angular separation between wedges
 
   $: arcPath = arc().innerRadius(innerRadius).outerRadius(outerRadius);
 

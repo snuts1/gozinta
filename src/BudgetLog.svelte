@@ -1,5 +1,8 @@
 <script>
+  import { createEventDispatcher } from 'svelte';
   export let entries;
+
+  const dispatch = createEventDispatcher();
 
   $: budgetEntries = entries.filter((e) => e.entryType === 'recurring_template');
 
@@ -25,10 +28,15 @@
     };
   });
   const tblHeaders = ['Amount', 'Frequency', 'Description', 'Category', ''];
+
+  function handleEdit(entry) {
+    dispatch('edit', entry);
+  }
 </script>
 
+
+<!-- Budget Table -->
 <div class="log-container">
-  <h2>Budgets</h2>
   <!-- This container makes the table scroll horizontally on small screens -->
   <div class="table-container">
     <table>
@@ -47,7 +55,7 @@
             <td>{entry.recurrenceRule?.frequency ?? 'N/A'}</td>
             <td>{entry.description}</td>
             <td>{entry.categoryId}</td>
-            <td><button class="edit-btn" > Edit </button></td>
+            <td><button class="edit-btn" on:click={() => handleEdit(entry)}> Edit </button></td>
           </tr>
         {/each}
       </tbody>
