@@ -3,7 +3,8 @@ import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { VitePWA } from 'vite-plugin-pwa'
 import sveltePreprocess from 'svelte-preprocess';
 import { optimizeImports, optimizeCss} from 'carbon-preprocess-svelte';
-import path from 'path'; 
+import path from 'path';
+
 
 
 const repositoryName = 'gozinta'
@@ -66,7 +67,7 @@ export default defineConfig({
           }
         ]
       },
-      })
+      }),
     ],
     base: `/${repositoryName}/`,
     })
